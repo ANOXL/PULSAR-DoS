@@ -47,7 +47,7 @@ PULSAR is a simple Python script designed to simulate a Denial of Service (DoS) 
 *   Basic traffic and PC overload estimation/warnings.
 
 ## Prerequisites
-*   Python 3.6+
+*   **Python 3.6+ installed and configured:** Ensure Python is added to your system's PATH环境变量, so `.py` files are associated with the Python interpreter.
 *   `keyboard` library (optional, for ESC key functionality):
     ```bash
     pip install keyboard
@@ -56,14 +56,21 @@ PULSAR is a simple Python script designed to simulate a Denial of Service (DoS) 
 
 ## Installation
 1.  Clone this repository or download `PULSAR.py`.
-2.  Install the `keyboard` library: `pip install -r requirements.txt` (if you create a requirements.txt file with `keyboard` in it).
+2.  (Optional) Install the `keyboard` library: `pip install -r requirements.txt` (if you create a requirements.txt file with `keyboard` in it).
 
 ## Usage
 
-You can run PULSAR in two main ways:
+PULSAR can be launched in two primary ways:
 
 **1. Interactive Mode (Recommended for ease of use):**
 
-Simply run the script without any arguments. The program will guide you through setting up the attack parameters.
+Simply run the script. The program will guide you through setting up the attack parameters.
+*   On many systems (like Windows), if Python is correctly installed and associated with `.py` files, you might be able to **double-click the `PULSAR.py` file** to run it. A console window should open.
+*   Alternatively, you can always open a terminal/command prompt, navigate to the script's directory (e.g., `cd path/to/PULSAR_Project`), and then execute `python PULSAR.py` or `python3 PULSAR.py`.
+
+**2. Command-Line Arguments:**
+
+For more direct control or for scripting, you can specify all parameters via the command line:
+
 ```bash
-python PULSAR.py
+python PULSAR.py [target] [port] [duration] [-t threads] [-i]
