@@ -33,30 +33,26 @@ If you wish to contribute to this project, please ensure your contributions also
 ---
 
 ## Description
-PULSAR is a simple Python script designed to simulate a Denial of Service (DoS) attack by sending a large number of HTTP/HTTPS requests to a specified target. It allows users to specify the target domain/IP, port, duration of the test, and the number of concurrent threads.
+PULSAR is a simple Python script designed to simulate a Denial of Service (DoS) attack by sending a large number of HTTPS (including HTTP) or DNS (UDP flood) requests to a specified target. It allows users to specify the attack type, target domain/IP, port (for HTTPS/HTTP), duration of the test, and the number of concurrent workers.
 
 ## Features
 *   Interactive mode for easy parameter input.
 *   Command-line argument support.
-*   HTTP (port 80) and HTTPS (port 443) support.
+*   HTTPS/HTTP (ports 443/80) and DNS (UDP flood on port 53) attack types.
 *   Multi-threaded request generation.
 *   Real-time progress display.
-*   ESC key to stop an ongoing attack (requires 'keyboard' library).
+*   **Ctrl+C** to stop an ongoing attack.
 *   Post-attack menu for repeating, starting new, or closing.
 *   Console title updates.
 *   Basic traffic and PC overload estimation/warnings.
 
 ## Prerequisites
-*   **Python 3.6+ installed and configured:** Ensure Python is added to your system's PATH环境变量, so `.py` files are associated with the Python interpreter.
-*   `keyboard` library (optional, for ESC key functionality):
-    ```bash
-    pip install keyboard
-    ```
-    *(Note: On Linux, the `keyboard` library may require root/sudo privileges to function correctly.)*
+*   **Python 3.6+ installed and configured:** Ensure Python is added to your system's PATH environment variable, so `.py` files are associated with the Python interpreter.
+    *(No external libraries are required for the core functionality.)*
 
 ## Installation
 1.  Clone this repository or download `PULSAR.py`.
-2.  (Optional) Install the `keyboard` library: `pip install -r requirements.txt` (if you create a requirements.txt file with `keyboard` in it).
+2.  No further installation steps are required for the core script.
 
 ## Usage
 
@@ -73,4 +69,4 @@ Simply run the script. The program will guide you through setting up the attack 
 For more direct control or for scripting, you can specify all parameters via the command line:
 
 ```bash
-python PULSAR.py [target] [port] [duration] [-t threads] [-i]
+python PULSAR.py [--attack_type <TYPE>] [target] [port_for_https] [duration] [-t threads] [-i]
