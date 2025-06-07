@@ -1,6 +1,8 @@
 # PULSAR - Simple Denial of Service Test Tool
 
-**⚠️ IMPORTANT WARNING & USAGE GUIDELINES ⚠️**
+💖 If you find PULSAR useful, please consider giving it a star ⭐ on its GitHub repository! Your support is greatly appreciated.
+
+**⚠️ IMPORTANT WARNING & USAGE GUIDELNES ⚠️**
 
 ## Disclaimer
 
@@ -60,7 +62,7 @@ PULSAR can be launched in two primary ways:
 
 **1. Interactive Mode (Recommended for ease of use):**
 
-Simply run the script. The program will guide you through setting up the attack parameters.
+Simply run the script without any arguments. The program will guide you through setting up the attack parameters.
 *   On many systems (like Windows), if Python is correctly installed and associated with `.py` files, you might be able to **double-click the `PULSAR.py` file** to run it. A console window should open.
 *   Alternatively, you can always open a terminal/command prompt, navigate to the script's directory (e.g., `cd path/to/PULSAR_DoS`), and then execute `python PULSAR.py` or `python3 PULSAR.py`.
 
